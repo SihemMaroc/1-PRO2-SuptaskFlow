@@ -1,4 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { DndContext, closestCenter } from "@dnd-kit/core";
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import DragDropCard from "./components/DragDropCard";
 import Login from "./login.js";
 import Register from "./register.js";
 import "./App.css";
@@ -487,7 +494,114 @@ export default function App() {
       setError("Erreur de modification de la carte");
     }
   }
+  
+    function handleDragEnd(event) {
+    const { active, over } = event;
 
+    if (!over) return;
+    if (active.id === over.id) return;
+
+    const activeCardId = String(active.id).replace("card-", "");
+    const overCardId = String(over.id).replace("card-", "");
+
+    setBoards((prevBoards) =>
+      prevBoards.map((board) => {
+        if (Number(board.id) !== Number(selectedBoardId)) return board;
+
+        const boardColumns =
+          board.attributes?.columns?.data ||
+          board.columns?.data ||
+          board.columns ||
+          [];
+
+        let sourceColumnIndex = -1;
+        let targetColumnIndex = -1;
+        let sourceCardIndex = -1;
+        let targetCardIndex = -1;
+
+        const normalizedColumns = boardColumns.map((col) => {
+          const rawCards =
+            col.attributes?.cards?.data ||
+            col.cards?.data ||
+            col.cards ||
+            [];
+
+          const cards = rawCards.map((card) =>
+            card.attributes
+              ? {
+                  id: card.id,
+                  documentId: card.documentId,
+                  ...card.attributes,
+                }
+              : card
+          );
+
+          return { ...col, cards };
+        });
+
+        for (let i = 0; i < normalizedColumns.length; i++) {
+          const cards = normalizedColumns[i].cards || [];
+
+          const sIndex = cards.findIndex(
+            (card) => String(card.id) === activeCardId
+          );
+          if (sIndex !== -1) {
+            sourceColumnIndex = i;
+            sourceCardIndex = sIndex;
+          }
+
+          const tIndex = cards.findIndex(
+            (card) => String(card.id) === overCardId
+          );
+          if (tIndex !== -1) {
+            targetColumnIndex = i;
+            targetCardIndex = tIndex;
+          }
+        }
+
+        if (
+          sourceColumnIndex === -1 ||
+          targetColumnIndex === -1 ||
+          sourceCardIndex === -1 ||
+          targetCardIndex === -1
+        ) {
+          return board;
+        }
+
+        const updatedColumns = [...normalizedColumns];
+
+        const sourceCards = [...updatedColumns[sourceColumnIndex].cards];
+        const targetCards =
+          sourceColumnIndex === targetColumnIndex
+            ? sourceCards
+            : [...updatedColumns[targetColumnIndex].cards];
+
+        const [movedCard] = sourceCards.splice(sourceCardIndex, 1);
+
+        if (!movedCard) return board;
+
+        targetCards.splice(targetCardIndex, 0, {
+          ...movedCard,
+          column: updatedColumns[targetColumnIndex].id,
+        });
+
+        updatedColumns[sourceColumnIndex] = {
+          ...updatedColumns[sourceColumnIndex],
+          cards: sourceCards,
+        };
+
+        updatedColumns[targetColumnIndex] = {
+          ...updatedColumns[targetColumnIndex],
+          cards: targetCards,
+        };
+
+        return {
+          ...board,
+          columns: updatedColumns,
+        };
+      })
+    );
+  }
   // quand je me connecte je charge les boards
   useEffect(() => {
     if (!token) return;
@@ -586,97 +700,87 @@ export default function App() {
 
       <hr />
 
-      <div className="columns">
-        {boards.length === 0 ? (
-          <p>Aucun tableau. Crée-en un nouveau.</p>
-        ) : columns.length === 0 ? (
-          <p>Aucune colonne</p>
-        ) : (
-          columns.map((col) => {
-            const rawCards =
-              col.attributes?.cards?.data ||
-              col.cards?.data ||
-              col.cards ||
-              [];
+      <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <div className="columns">
+          {boards.length === 0 ? (
+            <p>Aucun tableau. Crée-en un nouveau.</p>
+          ) : columns.length === 0 ? (
+            <p>Aucune colonne</p>
+          ) : (
+            columns.map((col) => {
+              const rawCards =
+                col.attributes?.cards?.data ||
+                col.cards?.data ||
+                col.cards ||
+                [];
 
-            const cards = rawCards.map((card) =>
-              card.attributes
-                ? {
-                    id: card.id,
-                    documentId: card.documentId,
-                    ...card.attributes,
-                  }
-                : card
-            );
+              const cards = rawCards.map((card) =>
+                card.attributes
+                  ? {
+                      id: card.id,
+                      documentId: card.documentId,
+                      ...card.attributes,
+                    }
+                  : card
+              );
 
-            const colTitle = col.attributes?.title || col.title || "Colonne";
+              const colTitle = col.attributes?.title || col.title || "Colonne";
 
-            return (
-              <div
-                key={col.id}
-                className={`column ${
-                  colTitle === "TO DO" || colTitle === "FAIRE"
-                    ? "todo"
-                    : colTitle === "DOING" || colTitle === "EN COURS"
-                    ? "doing"
-                    : colTitle === "DONE" || colTitle === "FAIT"
-                    ? "done"
-                    : ""
-                }`}
-              >
-                <h2>{colTitle}</h2>
-
-                <button className="btn-add" onClick={() => createCard(col.id)}>
-                  Ajouter carte
-                </button>
-
-                <button className="btn-edit" onClick={() => renameColumn(col)}>
-                  Renommer colonne
-                </button>
-
-                <button
-                  className="btn-delete"
-                  onClick={() => deleteColumn(col.id)}
+              return (
+                <div
+                  key={col.id}
+                  className={`column ${
+                    colTitle === "TO DO" || colTitle === "FAIRE"
+                      ? "todo"
+                      : colTitle === "DOING" || colTitle === "EN COURS"
+                      ? "doing"
+                      : colTitle === "DONE" || colTitle === "FAIT"
+                      ? "done"
+                      : ""
+                  }`}
                 >
-                  Supprimer la colonne
-                </button>
+                  <h2>{colTitle}</h2>
 
-                {cards.length === 0 ? (
-                  <p>Aucune carte</p>
-                ) : (
-                  cards.map((card) => (
-                    <div key={card.id} className="card">
-                      <p>{card.title || "Sans titre"}</p>
+                  <button className="btn-add" onClick={() => createCard(col.id)}>
+                    Ajouter carte
+                  </button>
 
-                      <button
-                        className="btn-edit"
-                        onClick={() => editCard(card)}
-                      >
-                        Modifier carte
-                      </button>
+                  <button className="btn-edit" onClick={() => renameColumn(col)}>
+                    Renommer colonne
+                  </button>
 
-                      <button
-                        className="btn-delete"
-                        onClick={() => deleteCard(card.id)}
-                      >
-                        Supprimer carte
-                      </button>
+                  <button
+                    className="btn-delete"
+                    onClick={() => deleteColumn(col.id)}
+                  >
+                    Supprimer la colonne
+                  </button>
 
-                      {card.description && <p>{card.description}</p>}
+                  {cards.length === 0 ? (
+                    <p>Aucune carte</p>
+                  ) : (
+                    <SortableContext
+                      items={cards.map((card) => String(card.id))}
+                      strategy={verticalListSortingStrategy}
+                    >
+                      {cards.map((card) => (
+                        <DragDropCard
+                          key={card.id}
+                          card={card}
+                          onEdit={() => editCard(card)}
+                          onDelete={() => deleteCard(card.id)}
+                        />
+                      ))}
+                    </SortableContext>
+                  )}
 
-                      {card.dueDate && (
-                        <span className="due-date">📅 {card.dueDate}</span>
-                      )}
-                    </div>
-                  ))
-                )}
-
-                <hr />
-              </div>
-            );
-          })
-        )}
-      </div>
+                  <hr />
+                </div>
+              );
+            })
+          )}
+        </div>
+      </DndContext>
     </div>
   );
 }
