@@ -1,0 +1,41 @@
+
+*{
+  box-sizing: border-box;
+}
+
+
+body{
+  margin:0;
+  font-family:"Inter","Segoe UI",Arial,sans-serif;
+
+
+  background:linear-gradient(135deg,#f7f3ff,#efeaff);
+
+  color:#2f2f3a;
+
+
+  line-height:1.5;
+
+  
+  overflow-x:hidden;
+}
+
+
+a{
+  color:#5b4bdb;
+  text-decoration:none;
+}
+
+a:hover{
+  text-decoration:underline;
+}
+
+/* boutons accessibles */
+button{
+  font-family:inherit;
+}
+
+
+input, select, textarea{
+  font-family:inherit;
+}

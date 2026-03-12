@@ -1,0 +1,33 @@
+{
+  "kind": "collectionType",
+  "collectionName": "columns",
+  "info": {
+    "singularName": "column",
+    "pluralName": "columns",
+    "displayName": "Column"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "title": {
+      "type": "string"
+    },
+    "order": {
+      "type": "integer"
+    },
+    "board": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::board.board",
+      "inversedBy": "columns"
+    },
+    "cards": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::card.card",
+      "mappedBy": "column"
+    }
+  }
+}
